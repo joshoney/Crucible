@@ -1,0 +1,147 @@
+version: '3.8'
+
+# Define a custom bridge network so all containers can resolve each other by name
+networks:
+  agent-platform-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  minio-data:
+
+services:
+  # 1. PostgreSQL (The persistent state engine for Temporal)
+  postgresql:
+    image: postgres:14
+    container_name: temporal-postgresql
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - agent-platform-network
+    ports:
+      - "5432:5432"
+
+  # 2. Temporal Server (The Orchestration Control Plane)
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal-server
+    depends_on:
+      - postgresql
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    networks:
+      - agent-platform-network
+    ports:
+      - "7233:7233" # The gRPC port your Python worker and MCP Gateway connect to
+
+  # 3. Temporal Web UI (For visualizing your workflows)
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    networks:
+      - agent-platform-network
+    ports:
+      - "8080:8080" # http://localhost:8080 to see your workflow traces
+
+  # 4. MinIO (S3-Compatible Object Storage for bench.json and HTML artifacts)
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-03-12T18-04-18Z
+    container_name: minio-storage
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    networks:
+      - agent-platform-network
+    ports:
+      - "9000:9000" # API Port
+      - "9001:9001" # Web UI Port (http://localhost:9001)
+
+  # 5. MinIO Init (Ephemeral container to auto-create the "evals" bucket)
+  # It waits for MinIO to start, creates the bucket, and exits with 0 (success).
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-03-12T17-29-24Z
+    container_name: minio-init
+    depends_on:
+      - minio
+    networks:
+      - agent-platform-network
+    restart: on-failure
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set localminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb localminio/eval-artifacts;
+      /usr/bin/mc anonymous set public localminio/eval-artifacts;
+      exit 0;
+      "
+
+  # 6. The Temporal Worker (Executes evaluerBench)
+  eval-worker:
+    build: 
+      context: ./eval-orchestrator
+      dockerfile: Dockerfile
+    container_name: eval-worker
+    depends_on:
+      - temporal
+      - minio
+    networks:
+      - agent-platform-network
+    environment:
+      # Temporal Settings
+      - TEMPORAL_URL=temporal:7233
+      # MinIO Settings
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=eval-artifacts
+      # LangSmith Settings (Inject these securely in your actual environment)
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_PROJECT=evaluerBench-Docker
+      # Lemonade Black-Box Settings (Assuming it runs on your host machine's port 8000)
+      # In Docker, 'host.docker.internal' routes traffic out of the container to your local Linux machine
+      - LEMONADE_API_URL=${LEMONADE_API_URL}
+    volumes:
+      # Mount your local code directory so you don't have to rebuild the image every time you change a Python file
+      - ./eval-orchestrator:/app
+
+  # 7. The FastMCP Publisher Gateway
+  mcp-gateway:
+    build:
+      context: ./mcp-gateway
+      dockerfile: Dockerfile
+    container_name: mcp-gateway
+    depends_on:
+      - temporal
+      - minio
+    networks:
+      - agent-platform-network
+    ports:
+      - "8081:8000" # Your external agent calls http://localhost:8081/evaluate
+    environment:
+      - TEMPORAL_URL=temporal:7233
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
+      # Connects to MinIO to download the artifacts before pushing to Git
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=eval-artifacts
+    volumes:
+      - ./mcp-gateway:/app
