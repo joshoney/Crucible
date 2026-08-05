@@ -1,21 +1,21 @@
-# DistVal: Distributed Agentic Model Evaluation Platform
+# Crucible: Distributed Agentic Model Evaluation Platform
 
 ## What It Is
-DistVal is a distributed orchestration platform designed to automate the evaluation of Large Language Models (LLMs) and publish the results.
+Crucible is a distributed orchestration platform designed to automate the evaluation of Large Language Models (LLMs) and publish the results.
 
-At its core, DistVal leverages the **Model Context Protocol (MCP)** to allow external agents to trigger evaluations. These requests are picked up by a **Temporal** orchestration engine which manages a complex, multi-step workflow. The system provisions models on local hardware (via a Lemonade server), executes benchmarking using `evaluerBench`, offloads large evaluation artifacts to an S3-compatible **MinIO** instance, and finally publishes the results atomically directly to a GitHub repository (such as an Astro site) for public viewing.
+At its core, Crucible leverages the **Model Context Protocol (MCP)** to allow external agents to trigger evaluations. These requests are picked up by a **Temporal** orchestration engine which manages a complex, multi-step workflow. The system provisions models on local hardware (via a Lemonade server), executes benchmarking using `evaluerBench`, offloads large evaluation artifacts to an S3-compatible **MinIO** instance, and finally publishes the results atomically directly to a GitHub repository (such as an Astro site) for public viewing.
 
 ---
 
 ## How to Run It
 
 ### Prerequisites
-Before running DistVal, ensure your environment meets the following requirements:
+Before running Crucible, ensure your environment meets the following requirements:
 - **Docker & Docker Compose**: The entire infrastructure runs in containers.
 - **Python 3.10+** (if running the Python scripts locally instead of in Docker).
 
 ### Configuration
-DistVal relies on environment variables to connect to external services. Create or update the `.env` file in the root directory:
+Crucible relies on environment variables to connect to external services. Create or update the `.env` file in the root directory:
 
 ```env
 # Tracing for evaluerBench
@@ -55,7 +55,7 @@ docker-compose down
 
 ## Architecture & Workflow Deep Dive
 
-DistVal separates concerns to ensure scalability, fault tolerance, and deterministic execution.
+Crucible separates concerns to ensure scalability, fault tolerance, and deterministic execution.
 
 ### Core Architecture Components
 1. **MCP Gateway (`mcp-gateway`)**: A lightweight FastMCP Python server. It exposes tools (`test_model` and `get_evaluation_status`) to AI agents. It does *not* execute logic itself; it simply pushes a workflow request into the Temporal Task Queue and returns a tracking `taskID`.
