@@ -104,7 +104,7 @@ services:
       - agent-platform-network
     environment:
       # Temporal Settings
-      - TEMPORAL_URL=temporal:7233
+      - TEMPORAL_URL=temporal-server:7233
       # MinIO Settings
       - S3_ENDPOINT=http://minio:9000
       - S3_ACCESS_KEY=minioadmin
@@ -135,7 +135,7 @@ services:
     ports:
       - "8081:8000" # Your external agent calls http://localhost:8081/evaluate
     environment:
-      - TEMPORAL_URL=temporal:7233
+      - TEMPORAL_URL=temporal-server:7233
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}
       # Connects to MinIO to download the artifacts before pushing to Git
