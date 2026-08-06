@@ -1,5 +1,4 @@
 temporalio
 minio
 PyGithub
-requests
-evaluerBench @ git+https://github.com/joshoney/evaluerBench.git
+requests
