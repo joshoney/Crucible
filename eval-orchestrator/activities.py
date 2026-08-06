@@ -102,10 +102,7 @@ async def publish_results(task_id: str) -> str:
         filename = obj.object_name.replace(f"{task_id}/", "")
         
         # Determine target path in the remote Astro repository
-        if filename.endswith(".json"):
-            target_path = f"results/{task_id}/{filename}"
-        else:
-            target_path = f"public/artifacts/{task_id}/{filename}"
+        target_path = f"src/resources/evaluerBench/{task_id}/{filename}"
             
         tree_elements.append(
             InputGitTreeElement(
