@@ -28,7 +28,7 @@ def get_minio_client() -> Minio:
     )
 
 @activity.defn
-async def provision_model(payload: Dict[str, Any]) -> str:
+def provision_model(payload: Dict[str, Any]) -> str:
     """Instructs the Lemonade server on the local LAN to load the model."""
     model_name = payload["model_name"]
     config = payload.get("config", {})
@@ -41,7 +41,7 @@ async def provision_model(payload: Dict[str, Any]) -> str:
     return f"{model_name} successfully provisioned."
 
 @activity.defn
-async def run_agentic_evaluation(task_id: str, model_name: str) -> str:
+def run_agentic_evaluation(task_id: str, model_name: str) -> str:
     """
     Executes evaluerBench, writes output locally, and offloads heavy artifacts to MinIO.
     This pattern keeps the Temporal workflow state history lean.
@@ -74,7 +74,7 @@ async def run_agentic_evaluation(task_id: str, model_name: str) -> str:
     return f"Uploaded {uploaded_files} files to s3://{S3_BUCKET}/{task_id}"
 
 @activity.defn
-async def publish_results(task_id: str) -> str:
+def publish_results(task_id: str) -> str:
     """Pulls artifacts from MinIO and pushes an atomic commit to Astro via GitHub REST API."""
     if not GITHUB_TOKEN or not GITHUB_REPO:
         raise ValueError("Missing GITHUB_TOKEN or GITHUB_REPO environment variables.")
