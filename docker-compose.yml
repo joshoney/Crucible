@@ -36,8 +36,8 @@ services:
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=postgresql
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - TEMPORAL_CLI_ADDRESS=temporal-server:7233
     networks:
       - agent-platform-network
     ports:
@@ -50,7 +50,7 @@ services:
     depends_on:
       - temporal
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal-server:7233
     networks:
       - agent-platform-network
     ports:
