@@ -32,7 +32,7 @@ async def provision_model(payload: Dict[str, Any]) -> str:
     """Instructs the Lemonade server on the local LAN to load the model."""
     model_name = payload["model_name"]
     config = payload.get("config", {})
-    request_data = {"model": model_name, **config}
+    request_data = {"model_name": model_name, **config}
     
     activity.logger.info(f"Provisioning {model_name} at {LEMONADE_API_URL}/load")
     response = requests.post(f"{LEMONADE_API_URL}/load", json=request_data, timeout=120)
