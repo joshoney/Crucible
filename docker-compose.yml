@@ -22,7 +22,7 @@ services:
     networks:
       - agent-platform-network
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   # 2. Temporal Server (The Orchestration Control Plane)
   temporal:
