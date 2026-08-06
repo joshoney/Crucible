@@ -78,5 +78,5 @@ async def get_evaluation_status(task_id: str) -> str:
             
     except Exception as e:
         return f"Error retrieving status for {task_id}: {str(e)}"
-
 # The app object is picked up by Uvicorn in the Dockerfile
+app = mcp.http_app()
