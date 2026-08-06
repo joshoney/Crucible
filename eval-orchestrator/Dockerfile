@@ -3,8 +3,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install Node.js for evaluerBench
-RUN apt-get update && apt-get install -y curl \
+# Install Node.js and Git for evaluerBench
+RUN apt-get update && apt-get install -y curl git \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
