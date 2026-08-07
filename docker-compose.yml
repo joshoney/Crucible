@@ -118,6 +118,8 @@ services:
       # In Docker, 'host.docker.internal' routes traffic out of the container to your local Linux machine
       - LEMONADE_API_URL=${LEMONADE_API_URL}
       - TARGET_BASE_URL=${TARGET_BASE_URL:-${LEMONADE_API_URL}}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO}
     volumes:
       # Mount your local code directory so you don't have to rebuild the image every time you change a Python file
       - ./eval-orchestrator:/app
