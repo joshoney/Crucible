@@ -118,6 +118,9 @@ services:
       # In Docker, 'host.docker.internal' routes traffic out of the container to your local Linux machine
       - LEMONADE_API_URL=${LEMONADE_API_URL}
       - TARGET_BASE_URL=${TARGET_BASE_URL:-${LEMONADE_API_URL}}
+      - EVALUATOR_BASE_URL=${EVALUATOR_BASE_URL}
+      - EVALUATOR_API_KEY=${EVALUATOR_API_KEY}
+      - EVALUATOR_MODEL=${EVALUATOR_MODEL}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}
     volumes:
