@@ -117,6 +117,7 @@ services:
       # Lemonade Black-Box Settings (Assuming it runs on your host machine's port 8000)
       # In Docker, 'host.docker.internal' routes traffic out of the container to your local Linux machine
       - LEMONADE_API_URL=${LEMONADE_API_URL}
+      - TARGET_BASE_URL=${TARGET_BASE_URL:-${LEMONADE_API_URL}}
     volumes:
       # Mount your local code directory so you don't have to rebuild the image every time you change a Python file
       - ./eval-orchestrator:/app
