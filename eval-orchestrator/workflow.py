@@ -32,19 +32,20 @@ class LlmEvaluationWorkflow:
         )
         
         # 2. Run the LangGraph evaluation and push to S3 bucket
-        await workflow.execute_activity(
-            run_agentic_evaluation,
-            args=[task_id, model_name],
-            start_to_close_timeout=timedelta(minutes=30),
-            retry_policy=standard_retry,
-        )
-        
-        # 3. Publish results directly to Astro repository
-        await workflow.execute_activity(
-            publish_results,
-            args=[task_id],
-            start_to_close_timeout=timedelta(minutes=2),
-            retry_policy=standard_retry,
-        )
+        try:
+            await workflow.execute_activity(
+                run_agentic_evaluation,
+                args=[task_id, model_name],
+                start_to_close_timeout=timedelta(minutes=30),
+                retry_policy=standard_retry,
+            )
+        finally:
+            # 3. Publish results directly to Astro repository
+            await workflow.execute_activity(
+                publish_results,
+                args=[task_id],
+                start_to_close_timeout=timedelta(minutes=2),
+                retry_policy=standard_retry,
+            )
         
         return f"Successfully evaluated and published {model_name}."

@@ -52,25 +52,28 @@ def run_agentic_evaluation(task_id: str, model_name: str) -> str:
     os.makedirs(scratchpad_dir, exist_ok=True)
     
     activity.logger.info(f"Running evaluerBench for model {model_name}...")
-    run_evaluation_suite(model=model_name, output_dir=scratchpad_dir)
-    
-    minio_client = get_minio_client()
-    
-    # Ensure bucket exists
-    if not minio_client.bucket_exists(S3_BUCKET):
-        minio_client.make_bucket(S3_BUCKET)
+    try:
+        run_evaluation_suite(model=model_name, output_dir=scratchpad_dir)
+    finally:
+        minio_client = get_minio_client()
         
-    uploaded_files = 0
-    for root, _, files in os.walk(scratchpad_dir):
-        for file in files:
-            local_path = os.path.join(root, file)
-            # Store artifacts scoped by task_id
-            s3_path = f"{task_id}/{file}"
+        # Ensure bucket exists
+        if not minio_client.bucket_exists(S3_BUCKET):
+            minio_client.make_bucket(S3_BUCKET)
             
-            minio_client.fput_object(S3_BUCKET, s3_path, local_path)
-            uploaded_files += 1
-            activity.logger.info(f"Uploaded {file} to MinIO as {s3_path}")
-            
+        uploaded_files = 0
+        for root, _, files in os.walk(scratchpad_dir):
+            for file in files:
+                local_path = os.path.join(root, file)
+                # Store artifacts scoped by task_id
+                s3_path = f"{task_id}/{file}"
+                
+                minio_client.fput_object(S3_BUCKET, s3_path, local_path)
+                uploaded_files += 1
+                activity.logger.info(f"Uploaded {file} to MinIO as {s3_path}")
+                
+        activity.logger.info(f"Upload complete. Uploaded {uploaded_files} files to s3://{S3_BUCKET}/{task_id}")
+
     return f"Uploaded {uploaded_files} files to s3://{S3_BUCKET}/{task_id}"
 
 @activity.defn
