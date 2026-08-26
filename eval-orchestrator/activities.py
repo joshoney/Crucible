@@ -65,12 +65,14 @@ def run_agentic_evaluation(task_id: str, model_name: str) -> str:
         for root, _, files in os.walk(scratchpad_dir):
             for file in files:
                 local_path = os.path.join(root, file)
+                # Preserve directory structure by getting relative path from scratchpad_dir
+                rel_path = os.path.relpath(local_path, scratchpad_dir).replace("\\", "/")
                 # Store artifacts scoped by task_id
-                s3_path = f"{task_id}/{file}"
+                s3_path = f"{task_id}/{rel_path}"
                 
                 minio_client.fput_object(S3_BUCKET, s3_path, local_path)
                 uploaded_files += 1
-                activity.logger.info(f"Uploaded {file} to MinIO as {s3_path}")
+                activity.logger.info(f"Uploaded {local_path} to MinIO as {s3_path}")
                 
         activity.logger.info(f"Upload complete. Uploaded {uploaded_files} files to s3://{S3_BUCKET}/{task_id}")
 
@@ -93,28 +95,43 @@ def publish_results(task_id: str) -> str:
     
     tree_elements = []
     
-    # List and retrieve objects for this task ID from MinIO
-    objects = minio_client.list_objects(S3_BUCKET, prefix=f"{task_id}/")
+    import base64
+    
+    # List and retrieve objects for this task ID from MinIO recursively
+    objects = minio_client.list_objects(S3_BUCKET, prefix=f"{task_id}/", recursive=True)
     for obj in objects:
         response = minio_client.get_object(S3_BUCKET, obj.object_name)
         file_bytes = response.read()
-        file_content = file_bytes.decode('utf-8')
         response.close()
         response.release_conn()
         
-        filename = obj.object_name.replace(f"{task_id}/", "")
+        rel_path = obj.object_name.replace(f"{task_id}/", "", 1)
         
-        # Determine target path in the remote Astro repository
-        target_path = f"src/resources/evaluerBench/{task_id}/{filename}"
+        # Determine target path in the remote Astro repository preserving folder structure
+        target_path = f"src/resources/evaluerBench/{task_id}/{rel_path}"
             
-        tree_elements.append(
-            InputGitTreeElement(
-                path=target_path,
-                mode='100644',
-                type='blob',
-                content=file_content
+        try:
+            file_content = file_bytes.decode('utf-8')
+            tree_elements.append(
+                InputGitTreeElement(
+                    path=target_path,
+                    mode='100644',
+                    type='blob',
+                    content=file_content
+                )
             )
-        )
+        except UnicodeDecodeError:
+            # If it's a binary artifact (like an image), create a git blob first
+            blob_content = base64.b64encode(file_bytes).decode('utf-8')
+            blob = repo.create_git_blob(blob_content, "base64")
+            tree_elements.append(
+                InputGitTreeElement(
+                    path=target_path,
+                    mode='100644',
+                    type='blob',
+                    sha=blob.sha
+                )
+            )
         
     if not tree_elements:
         raise RuntimeError(f"No artifacts found in MinIO for task_id: {task_id}")
