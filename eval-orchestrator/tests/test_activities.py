@@ -1,3 +1,4 @@
+import os
 import pytest
 import sys
 import requests
@@ -24,21 +25,24 @@ async def test_provision_model():
         mock_post.assert_called_once()
 
 @pytest.mark.asyncio
-async def test_run_agentic_evaluation():
+async def test_run_agentic_evaluation(tmp_path):
+    # Use a temp scratchpad: the /app/scratchpad default isn't writable on CI runners
     env = ActivityEnvironment()
-    with patch("activities.get_minio_client") as mock_get_minio, \
+    scratchpad_dir = os.path.join(str(tmp_path), "test-task")
+    with patch("activities.SCRATCHPAD_ROOT", str(tmp_path)), \
+         patch("activities.get_minio_client") as mock_get_minio, \
          patch("activities.os.walk") as mock_walk:
          
         mock_minio = MagicMock()
         mock_minio.bucket_exists.return_value = False
         mock_get_minio.return_value = mock_minio
         
-        mock_walk.return_value = [("/app/scratchpad/test-task/llama-3/format-json-boolean", [], ["2026-07-31T04-39-55.json"])]
-        
+        mock_walk.return_value = [(os.path.join(scratchpad_dir, "llama-3", "format-json-boolean"), [], ["2026-07-31T04-39-55.json"])]
+
         result = env.run(run_agentic_evaluation, "test-task", "llama-3")
-        
+
         assert "Uploaded 1 files to s3" in result
-        mock_evaluer_bench.run_evaluation_suite.assert_called_once_with(model="llama-3", output_dir="/app/scratchpad/test-task")
+        mock_evaluer_bench.run_evaluation_suite.assert_called_once_with(model="llama-3", output_dir=scratchpad_dir)
         mock_minio.make_bucket.assert_called_once()
         mock_minio.fput_object.assert_called_once()
 
@@ -80,17 +84,20 @@ async def test_provision_model_http_error():
             env.run(provision_model, {"model_name": "llama-3"})
 
 @pytest.mark.asyncio
-async def test_run_agentic_evaluation_bucket_exists():
+async def test_run_agentic_evaluation_bucket_exists(tmp_path):
+    # Use a temp scratchpad: the /app/scratchpad default isn't writable on CI runners
     env = ActivityEnvironment()
-    with patch("activities.get_minio_client") as mock_get_minio, \
+    scratchpad_dir = os.path.join(str(tmp_path), "test-task")
+    with patch("activities.SCRATCHPAD_ROOT", str(tmp_path)), \
+         patch("activities.get_minio_client") as mock_get_minio, \
          patch("activities.os.walk") as mock_walk:
          
         mock_minio = MagicMock()
         mock_minio.bucket_exists.return_value = True
         mock_get_minio.return_value = mock_minio
         
-        mock_walk.return_value = [("/app/scratchpad/test-task/llama-3/format-json-boolean", [], ["2026-07-31T04-39-55.json"])]
-        
+        mock_walk.return_value = [(os.path.join(scratchpad_dir, "llama-3", "format-json-boolean"), [], ["2026-07-31T04-39-55.json"])]
+
         env.run(run_agentic_evaluation, "test-task", "llama-3")
 
         mock_minio.make_bucket.assert_not_called()

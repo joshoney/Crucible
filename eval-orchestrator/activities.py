@@ -17,6 +17,9 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")  # e.g. "joshoney/devsite"
 TARGET_BRANCH = os.getenv("TARGET_BRANCH", "main")
 
+# Per-task working directory for evaluerBench output (bind-mounted to the host in docker-compose)
+SCRATCHPAD_ROOT = os.getenv("SCRATCHPAD_ROOT", "/app/scratchpad")
+
 def get_minio_client() -> Minio:
     return Minio(
         S3_ENDPOINT,
@@ -48,7 +51,7 @@ def run_agentic_evaluation(task_id: str, model_name: str) -> str:
     # so this module can be imported (and unit-tested) without evaluerBench installed
     from evaluerBench.main import run_evaluation_suite
     
-    scratchpad_dir = f"/app/scratchpad/{task_id}"
+    scratchpad_dir = os.path.join(SCRATCHPAD_ROOT, task_id)
     os.makedirs(scratchpad_dir, exist_ok=True)
     
     activity.logger.info(f"Running evaluerBench for model {model_name}...")
