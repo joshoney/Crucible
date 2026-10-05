@@ -56,7 +56,7 @@ services:
     ports:
       - "8080:8080" # http://localhost:8080 to see your workflow traces
 
-  # 4. MinIO (S3-Compatible Object Storage for bench.json and HTML artifacts)
+  # 4. MinIO (S3-compatible object storage for evaluerBench JSON results and HTML artifacts)
   minio:
     image: quay.io/minio/minio:RELEASE.2025-03-12T18-04-18Z
     container_name: minio-storage
@@ -72,7 +72,7 @@ services:
       - "9000:9000" # API Port
       - "9001:9001" # Web UI Port (http://localhost:9001)
 
-  # 5. MinIO Init (Ephemeral container to auto-create the "evals" bucket)
+  # 5. MinIO Init (ephemeral container that creates the "eval-artifacts" bucket)
   # It waits for MinIO to start, creates the bucket, and exits with 0 (success).
   minio-init:
     image: quay.io/minio/mc:RELEASE.2025-03-12T17-29-24Z
@@ -114,20 +114,22 @@ services:
       - LANGCHAIN_TRACING_V2=true
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT=evaluerBench-Docker
-      # Lemonade Black-Box Settings (Assuming it runs on your host machine's port 8000)
-      # In Docker, 'host.docker.internal' routes traffic out of the container to your local Linux machine
+      # Lemonade server on the LAN (model provisioning); e.g. http://10.10.0.12:8000/api/v1
       - LEMONADE_API_URL=${LEMONADE_API_URL}
       - TARGET_BASE_URL=${TARGET_BASE_URL:-${LEMONADE_API_URL}}
       - EVALUATOR_BASE_URL=${EVALUATOR_BASE_URL}
       - EVALUATOR_API_KEY=${EVALUATOR_API_KEY}
       - EVALUATOR_MODEL=${EVALUATOR_MODEL}
+      # Publishing target (results are committed to this repo/branch)
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}
+      - TARGET_BRANCH=${TARGET_BRANCH:-main}
     volumes:
-      # Mount your local code directory so you don't have to rebuild the image every time you change a Python file
+      # Bind-mount the worker code so Python changes need no rebuild. evaluerBench output
+      # lands in ./eval-orchestrator/scratchpad/<task_id> (gitignored) through this mount.
       - ./eval-orchestrator:/app
 
-  # 7. The FastMCP Publisher Gateway
+  # 7. MCP Gateway (FastMCP over SSE; submits workflows to Temporal)
   mcp-gateway:
     build:
       context: ./mcp-gateway
@@ -135,19 +137,12 @@ services:
     container_name: mcp-gateway
     depends_on:
       - temporal
-      - minio
     networks:
       - agent-platform-network
     ports:
-      - "8081:8000" # Your external agent calls http://localhost:8081/evaluate
+      - "8081:8000" # MCP clients connect to the SSE endpoint at http://<host>:8081/sse
     environment:
+      # The gateway only talks to Temporal; publishing is done by eval-worker
       - TEMPORAL_URL=temporal-server:7233
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GITHUB_REPO=${GITHUB_REPO}
-      # Connects to MinIO to download the artifacts before pushing to Git
-      - S3_ENDPOINT=http://minio:9000
-      - S3_ACCESS_KEY=minioadmin
-      - S3_SECRET_KEY=minioadmin
-      - S3_BUCKET=eval-artifacts
     volumes:
       - ./mcp-gateway:/app

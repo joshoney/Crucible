@@ -1,22 +1,20 @@
+import base64
 import os
-import io
-import json
 import requests
 from temporalio import activity
 from minio import Minio
-from minio.error import S3Error
 from github import Github, Auth, InputGitTreeElement
 from typing import Dict, Any
 
 # Environment Variables
-LEMONADE_API_URL = os.getenv("LEMONADE_API_URL", "http://192.168.0.51:8000/api/v1")
+LEMONADE_API_URL = os.getenv("LEMONADE_API_URL", "http://10.10.0.12:8000/api/v1")
 S3_ENDPOINT = os.getenv("S3_ENDPOINT", "minio:9000").replace("http://", "").replace("https://", "")
 S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "minioadmin")
 S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "minioadmin")
 S3_BUCKET = os.getenv("S3_BUCKET", "eval-artifacts")
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = os.getenv("GITHUB_REPO")  # e.g. "joshoney/portfolio"
+GITHUB_REPO = os.getenv("GITHUB_REPO")  # e.g. "joshoney/devsite"
 TARGET_BRANCH = os.getenv("TARGET_BRANCH", "main")
 
 def get_minio_client() -> Minio:
@@ -46,7 +44,9 @@ def run_agentic_evaluation(task_id: str, model_name: str) -> str:
     Executes evaluerBench, writes output locally, and offloads heavy artifacts to MinIO.
     This pattern keeps the Temporal workflow state history lean.
     """
-    from evaluerBench.main import run_evaluation_suite # Imported from mounted volume
+    # evaluerBench is git-cloned into /opt by the Dockerfile (PYTHONPATH=/opt); imported lazily
+    # so this module can be imported (and unit-tested) without evaluerBench installed
+    from evaluerBench.main import run_evaluation_suite
     
     scratchpad_dir = f"/app/scratchpad/{task_id}"
     os.makedirs(scratchpad_dir, exist_ok=True)
@@ -80,7 +80,7 @@ def run_agentic_evaluation(task_id: str, model_name: str) -> str:
 
 @activity.defn
 def publish_results(task_id: str) -> str:
-    """Pulls artifacts from MinIO and pushes an atomic commit to Astro via GitHub REST API."""
+    """Pulls artifacts from MinIO and publishes them to GITHUB_REPO as one atomic commit (Git Data API)."""
     if not GITHUB_TOKEN or not GITHUB_REPO:
         raise ValueError("Missing GITHUB_TOKEN or GITHUB_REPO environment variables.")
 
@@ -94,9 +94,7 @@ def publish_results(task_id: str) -> str:
     base_tree = repo.get_git_tree(base_commit.tree.sha)
     
     tree_elements = []
-    
-    import base64
-    
+
     # List and retrieve objects for this task ID from MinIO recursively
     objects = minio_client.list_objects(S3_BUCKET, prefix=f"{task_id}/", recursive=True)
     for obj in objects:
@@ -105,10 +103,12 @@ def publish_results(task_id: str) -> str:
         response.close()
         response.release_conn()
         
+        # rel_path follows evaluerBench's layout: <model>/<evalId>/<run file>
         rel_path = obj.object_name.replace(f"{task_id}/", "", 1)
-        
-        # Determine target path in the remote Astro repository preserving folder structure
-        target_path = f"src/resources/evaluerBench/{task_id}/{rel_path}"
+
+        # Publish into the site's results tree using the same layout (no task_id level),
+        # so each run lands alongside earlier runs of the same model and eval
+        target_path = f"src/resources/evaluerBench/{rel_path}"
             
         try:
             file_content = file_bytes.decode('utf-8')

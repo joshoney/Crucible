@@ -3,19 +3,23 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 .venv/
 venv/
 env/
 
-# Environment Variables
+# Environment variables (.env.example is committed as the template)
 .env
+!.env.example
 
-# Temporal / MinIO / PostgreSQL Data
-# (Assuming you don't commit local volume data if placed inside the folder)
+# Local data directories (compose uses named volumes; ignore these if bind-mounted instead)
 minio-data/
 postgres-data/
+
+# evaluerBench output written by the worker through the /app bind mount
+scratchpad/
 
 # OS generated files
 .DS_Store

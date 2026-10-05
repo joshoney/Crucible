@@ -19,7 +19,7 @@ async def test_provision_model():
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
         
-        result = await env.run(provision_model, {"model_name": "llama-3"})
+        result = env.run(provision_model, {"model_name": "llama-3"})
         assert result == "llama-3 successfully provisioned."
         mock_post.assert_called_once()
 
@@ -33,9 +33,9 @@ async def test_run_agentic_evaluation():
         mock_minio.bucket_exists.return_value = False
         mock_get_minio.return_value = mock_minio
         
-        mock_walk.return_value = [("/app/scratchpad/test-task", [], ["bench.json"])]
+        mock_walk.return_value = [("/app/scratchpad/test-task/llama-3/format-json-boolean", [], ["2026-07-31T04-39-55.json"])]
         
-        result = await env.run(run_agentic_evaluation, "test-task", "llama-3")
+        result = env.run(run_agentic_evaluation, "test-task", "llama-3")
         
         assert "Uploaded 1 files to s3" in result
         mock_evaluer_bench.run_evaluation_suite.assert_called_once_with(model="llama-3", output_dir="/app/scratchpad/test-task")
@@ -53,7 +53,7 @@ async def test_publish_results():
         mock_minio = MagicMock()
         mock_get_minio.return_value = mock_minio
         mock_obj = MagicMock()
-        mock_obj.object_name = "test-task/bench.json"
+        mock_obj.object_name = "test-task/llama-3/format-json-boolean/2026-07-31T04-39-55.json"
         mock_minio.list_objects.return_value = [mock_obj]
         
         mock_response = MagicMock()
@@ -63,7 +63,7 @@ async def test_publish_results():
         mock_gh_instance = MagicMock()
         mock_github.return_value = mock_gh_instance
         
-        result = await env.run(publish_results, "test-task")
+        result = env.run(publish_results, "test-task")
         
         assert "Successfully published task test-task" in result
         mock_gh_instance.get_repo.assert_called_once()
@@ -77,7 +77,7 @@ async def test_provision_model_http_error():
         mock_post.return_value = mock_response
         
         with pytest.raises(requests.exceptions.HTTPError):
-            await env.run(provision_model, {"model_name": "llama-3"})
+            env.run(provision_model, {"model_name": "llama-3"})
 
 @pytest.mark.asyncio
 async def test_run_agentic_evaluation_bucket_exists():
@@ -89,10 +89,10 @@ async def test_run_agentic_evaluation_bucket_exists():
         mock_minio.bucket_exists.return_value = True
         mock_get_minio.return_value = mock_minio
         
-        mock_walk.return_value = [("/app/scratchpad/test-task", [], ["bench.json"])]
+        mock_walk.return_value = [("/app/scratchpad/test-task/llama-3/format-json-boolean", [], ["2026-07-31T04-39-55.json"])]
         
-        result = await env.run(run_agentic_evaluation, "test-task", "llama-3")
-        
+        env.run(run_agentic_evaluation, "test-task", "llama-3")
+
         mock_minio.make_bucket.assert_not_called()
         mock_minio.fput_object.assert_called_once()
 
@@ -102,7 +102,7 @@ async def test_publish_results_missing_env():
     with patch("activities.GITHUB_TOKEN", None), \
          patch("activities.GITHUB_REPO", None):
         with pytest.raises(ValueError, match="Missing GITHUB_TOKEN or GITHUB_REPO environment variables"):
-            await env.run(publish_results, "test-task")
+            env.run(publish_results, "test-task")
 
 @pytest.mark.asyncio
 async def test_publish_results_file_routing():
@@ -116,9 +116,9 @@ async def test_publish_results_file_routing():
         mock_get_minio.return_value = mock_minio
         
         mock_obj1 = MagicMock()
-        mock_obj1.object_name = "test-task/bench.json"
+        mock_obj1.object_name = "test-task/llama-3/format-json-boolean/2026-07-31T04-39-55.json"
         mock_obj2 = MagicMock()
-        mock_obj2.object_name = "test-task/log.txt"
+        mock_obj2.object_name = "test-task/llama-3/visual-tictactoe-game/artifact-2026-07-31T04-41-02.html"
         
         mock_minio.list_objects.return_value = [mock_obj1, mock_obj2]
         
@@ -130,13 +130,14 @@ async def test_publish_results_file_routing():
         mock_github.return_value = mock_gh_instance
         
         with patch("activities.InputGitTreeElement") as mock_element:
-            await env.run(publish_results, "test-task")
+            env.run(publish_results, "test-task")
             
             assert mock_element.call_count == 2
             args_list = mock_element.call_args_list
             paths = [kwargs.get('path') for args, kwargs in args_list]
-            assert "results/test-task/bench.json" in paths
-            assert "public/artifacts/test-task/log.txt" in paths
+            # Published with evaluerBench's <model>/<evalId>/<run file> layout, without the task_id level
+            assert "src/resources/evaluerBench/llama-3/format-json-boolean/2026-07-31T04-39-55.json" in paths
+            assert "src/resources/evaluerBench/llama-3/visual-tictactoe-game/artifact-2026-07-31T04-41-02.html" in paths
 
 @pytest.mark.asyncio
 async def test_publish_results_empty_artifacts():
@@ -151,4 +152,4 @@ async def test_publish_results_empty_artifacts():
         mock_get_minio.return_value = mock_minio
         
         with pytest.raises(RuntimeError, match="No artifacts found in MinIO for task_id: test-task"):
-            await env.run(publish_results, "test-task")
+            env.run(publish_results, "test-task")

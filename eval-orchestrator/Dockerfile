@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN git clone https://github.com/joshoney/evaluerBench.git /opt/evaluerBench
 ENV PYTHONPATH="/opt"
 
-# The application code (and evaluerBench) will be mounted via docker-compose volumes
+# Application code is bind-mounted at /app by docker-compose (not copied into the image);
+# evaluerBench comes from the git clone above, so pull upstream changes with a rebuild:
+#   docker compose build --no-cache eval-worker
 # Run the worker script as the main process
 CMD ["python", "worker.py"]

@@ -5,7 +5,7 @@ from fastmcp import FastMCP
 from temporalio.client import Client, WorkflowExecutionStatus
 
 # 1. Initialize FastMCP
-mcp = FastMCP(name="EvalPlatformGateway")
+mcp = FastMCP(name="Crucible")
 
 TEMPORAL_URL = os.getenv("TEMPORAL_URL", "temporal:7233")
 TASK_QUEUE = "eval-task-queue"

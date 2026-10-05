@@ -1,0 +1,10 @@
+# Lint config used by CI: pyflakes + pycodestyle errors only
+extend-exclude = ["scratchpad"]
+
+[lint]
+select = ["E", "F"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# evaluerBench is stubbed in sys.modules before activities is imported
+"eval-orchestrator/tests/test_activities.py" = ["E402"]

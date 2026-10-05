@@ -31,7 +31,7 @@ class LlmEvaluationWorkflow:
             retry_policy=standard_retry,
         )
         
-        # 2. Run the LangGraph evaluation and push to S3 bucket
+        # 2. Run evaluerBench (a LangGraph-based harness) and upload its artifacts to MinIO
         try:
             await workflow.execute_activity(
                 run_agentic_evaluation,
@@ -40,7 +40,8 @@ class LlmEvaluationWorkflow:
                 retry_policy=standard_retry,
             )
         finally:
-            # 3. Publish results directly to Astro repository
+            # 3. Publish whatever artifacts exist to the site repo as one commit; runs in
+            #    finally so partial results are published even if the eval failed
             await workflow.execute_activity(
                 publish_results,
                 args=[task_id],
