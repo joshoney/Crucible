@@ -7,4 +7,4 @@ ignore = ["E501"]
 
 [lint.per-file-ignores]
 # evaluerBench is stubbed in sys.modules before activities is imported
-"eval-orchestrator/tests/test_activities.py" = ["E402"]
+"eval-orchestrator/tests/conftest.py" = ["E402"]

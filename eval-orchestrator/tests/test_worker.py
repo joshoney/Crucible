@@ -26,4 +26,7 @@ async def test_worker_initialization():
         _, kwargs = mock_worker_cls.call_args
         assert "eval-task-queue" == kwargs["task_queue"]
         assert len(kwargs["workflows"]) == 1
-        assert len(kwargs["activities"]) == 3
+        names = {a.__name__ for a in kwargs["activities"]}
+        assert names == {"run_evaluation", "publish_results", "load_latest_manifest", "record_outcome", "cleanup_scratch"}
+        # One GPU: never run two activities (e.g. two evals) at once
+        assert kwargs["max_concurrent_activities"] == 1

@@ -12,7 +12,7 @@ volumes:
 services:
   # 1. PostgreSQL (The persistent state engine for Temporal)
   postgresql:
-    image: postgres:14
+    image: postgres:14.24
     container_name: temporal-postgresql
     environment:
       - POSTGRES_USER=temporal
@@ -26,7 +26,8 @@ services:
 
   # 2. Temporal Server (The Orchestration Control Plane)
   temporal:
-    image: temporalio/auto-setup:latest
+    # auto-setup is deprecated upstream and 1.29.7 is its newest tag; see README for the migration path
+    image: temporalio/auto-setup:1.29.7
     container_name: temporal-server
     depends_on:
       - postgresql
@@ -45,7 +46,7 @@ services:
 
   # 3. Temporal Web UI (For visualizing your workflows)
   temporal-ui:
-    image: temporalio/ui:latest
+    image: temporalio/ui:2.55.0
     container_name: temporal-ui
     depends_on:
       - temporal
@@ -93,9 +94,12 @@ services:
 
   # 6. The Temporal Worker (Executes evaluerBench)
   eval-worker:
-    build: 
+    build:
       context: ./eval-orchestrator
       dockerfile: Dockerfile
+      args:
+        # Branch, tag, or commit SHA of evaluerBench to bake into the image
+        - EVALUERBENCH_REF=${EVALUERBENCH_REF:-main}
     container_name: eval-worker
     depends_on:
       - temporal
@@ -124,6 +128,10 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO=${GITHUB_REPO}
       - TARGET_BRANCH=${TARGET_BRANCH:-main}
+      # Check Lemonade's /health lists the model after /load, before the eval starts
+      - LEMONADE_VERIFY_LOADED=${LEMONADE_VERIFY_LOADED:-true}
+      # Scratch dirs of failed/cancelled runs older than this are deleted (0 disables)
+      - SCRATCH_RETENTION_DAYS=${SCRATCH_RETENTION_DAYS:-7}
     volumes:
       # Bind-mount the worker code so Python changes need no rebuild. evaluerBench output
       # lands in ./eval-orchestrator/scratchpad/<task_id> (gitignored) through this mount.
